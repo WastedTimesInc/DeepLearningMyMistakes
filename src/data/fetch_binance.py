@@ -3,12 +3,20 @@ import datetime as dt
 import pandas as pd
 import time
 from tqdm import tqdm
+import argparse
+
+parser = argparse.ArgumentParser(description="Fetch Binance Futures Kline data")
+parser.add_argument("-S", "--startDate", type=str, required=True, help="Start date in format YYYY-MM-DD")
+parser.add_argument("-E", "--endDate", type=str, required=True, help="End date in format YYYY-MM-DD")
+parser.add_argument("-C", "--symbol", type=str, required=True, help="Trading symbol")
+args = parser.parse_args()
+
+# Parse dates
+startDate = dt.datetime.strptime(args.startDate, "%Y-%m-%d")
+endDate = dt.datetime.strptime(args.endDate, "%Y-%m-%d")
+symbol = args.symbol
 
 url = "https://fapi.binance.com/fapi/v1/klines"
-
-# Dates in datetime
-startDate = dt.datetime(2020, 1, 1)
-endDate = dt.datetime(2020, 2, 1)
 
 # Convert to milliseconds
 startUTC = int(startDate.timestamp() * 1000)
@@ -23,9 +31,11 @@ numRequests = numKlines // maxRequests
 currentUTC = startUTC
 df2 = pd.DataFrame()
 
+
+
 for request in tqdm(range(int(numRequests)), desc="Fetching Klines"):
     params = {
-        "symbol": "BTCUSDT",
+        "symbol": symbol,
         "interval": "1m",
         "startTime": currentUTC,
         "limit": maxRequests
@@ -53,5 +63,6 @@ df2.columns = [
     "TakerBuyBase", "TakerBuyQuote", "Ignore"
 ]
 
-df2.to_csv("./raw/binancefull.csv", index=False)
-print("✅ Exported data to ./raw/binancefull.csv")
+name = symbol + '_' + startDate.strftime("%Y-%m-%d") + '_' + endDate.strftime("%Y-%m-%d") + ".csv"
+df2.to_csv("./raw/" + name, index=False)
+print("✅ Exported data to ./raw/" + name)
