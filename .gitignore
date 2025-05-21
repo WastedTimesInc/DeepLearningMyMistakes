@@ -172,3 +172,8 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Ignore MASSIVE datasets
+*.parquet
+
+.DS_Store

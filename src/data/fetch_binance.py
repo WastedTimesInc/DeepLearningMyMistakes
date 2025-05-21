@@ -62,7 +62,13 @@ df2.columns = [
     "CloseTime", "QuoteVolume", "NumTrades",
     "TakerBuyBase", "TakerBuyQuote", "Ignore"
 ]
+# ---------- cast numeric columns ----------
+numeric_cols = [
+    "Open", "High", "Low", "Close", "Volume",
+    "QuoteVolume", "NumTrades", "TakerBuyBase", "TakerBuyQuote"
+]
+df2[numeric_cols] = df2[numeric_cols].apply(pd.to_numeric, errors="coerce")
 
-name = symbol + '_' + startDate.strftime("%Y-%m-%d") + '_' + endDate.strftime("%Y-%m-%d") + ".csv"
-df2.to_csv("./raw/" + name, index=False)
+name = symbol + '_' + startDate.strftime("%Y-%m-%d") + '_' + endDate.strftime("%Y-%m-%d") + ".parquet"
+df2.to_parquet("./raw/" + name, index=False)
 print("✅ Exported data to ./raw/" + name)

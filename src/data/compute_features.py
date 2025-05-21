@@ -15,10 +15,10 @@ startDate = dt.datetime.strptime(args.startDate, "%Y-%m-%d")
 endDate = dt.datetime.strptime(args.endDate, "%Y-%m-%d")
 symbol = args.symbol
 
-loadfile = symbol + '_' + startDate.strftime("%Y-%m-%d") + '_' + endDate.strftime("%Y-%m-%d") + ".csv"
-savefile = symbol + '_' + startDate.strftime("%Y-%m-%d") + '_' + endDate.strftime("%Y-%m-%d") + "_features.csv"
+loadfile = symbol + '_' + startDate.strftime("%Y-%m-%d") + '_' + endDate.strftime("%Y-%m-%d") + ".parquet"
+savefile = symbol + '_' + startDate.strftime("%Y-%m-%d") + '_' + endDate.strftime("%Y-%m-%d") + "_features.parquet"
 
-df = pd.read_csv("./raw/" + loadfile)
+df = pd.read_parquet("./raw/" + loadfile)
 
 # ---------- Vectorised feature computation (significantly faster than the row‑by‑row loop) ----------
 df2 = pd.DataFrame(index=df.index)
@@ -73,5 +73,5 @@ df2 = df2[
 ]
 
 # ---------- export ----------
-df2.to_csv("./features/" + loadfile, index=False)
-print(f"✅ Exported data to ./features/{loadfile}")
+df2.to_parquet("./processed/dataset/" + savefile, index=False)
+print(f"✅ Exported data to ./processed/dataset/{savefile}")
