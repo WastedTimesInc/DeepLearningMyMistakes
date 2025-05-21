@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 import datetime as dt
 import argparse
-from tqdm import tqdm
 
 parser = argparse.ArgumentParser(description="Compute Features")
 parser.add_argument("-S", "--startDate", type=str, required=True, help="Start date in format YYYY-MM-DD")
@@ -20,79 +19,50 @@ savefile = symbol + '_' + startDate.strftime("%Y-%m-%d") + '_' + endDate.strftim
 
 df = pd.read_csv("./raw/" + loadfile)
 
-df2 = pd.DataFrame(columns=["return_pct", "high_low_ratio",
-                            "candle_body", "candle_direction", "upper_wick",
-                            "lower_wick", "upper_wick_ratio", "lower_wick_ratio",
-                            "wick_to_body_ratio", "price_change", "buy_ratio",
-                            "quote_volume_ratio", "trade_density", "taker_buy_intensity",
-                            "avg_trade_size"])
+# ---------- Vectorised feature computation (significantly faster than the row‑by‑row loop) ----------
+df2 = pd.DataFrame(index=df.index)
 
-for index, row in tqdm(df.iterrows(), total=len(df), desc="Computing Features"):
-    Close = df.at[index, "Close"]
-    Open = df.at[index, "Open"]
-    High = df.at[index, "High"]
-    Low = df.at[index, "Low"]
-    Volume = df.at[index, "Volume"]
-    QuoteVolume = df.at[index, "QuoteVolume"]
-    TakerBuyBase = df.at[index, "TakerBuyBase"]
-    NumTrades = df.at[index, "NumTrades"]
-    # return_pct
-    df2.loc[index, df2.columns[0]] = (Close - Open) / Open
-    # high_low_ratio
-    df2.loc[index, df2.columns[1]] = (High - Low) / Open
-    # candle_body
-    df2.loc[index, df2.columns[2]] = np.abs(Close - Open)
-    # candle_direction
-    if Close > Open:
-        df2.loc[index, df2.columns[3]] = 1
-    else:
-        df2.loc[index, df2.columns[3]] = -1
-    # upper_wick
-    df2.loc[index, df2.columns[4]] = High - max(Open, Close)
-    # lower_wick
-    df2.loc[index, df2.columns[5]] = min(Open, Close) - Low
+df2["return_pct"]       = (df["Close"] - df["Open"]) / df["Open"]
+df2["high_low_ratio"]   = (df["High"]  - df["Low"])  / df["Open"]
+df2["candle_body"]      = (df["Close"] - df["Open"]).abs()
+df2["candle_direction"] = np.where(df["Close"] > df["Open"], 1, -1)
+df2["upper_wick"]       = df["High"] - np.maximum(df["Open"], df["Close"])
+df2["lower_wick"]       = np.minimum(df["Open"], df["Close"]) - df["Low"]
 
-    if df2.at[index, "candle_body"] != 0:
-        # upper_wick_ratio
-        df2.loc[index, df2.columns[6]] = df2.at[index, "upper_wick"] / df2.at[index, "candle_body"]
-        # lower_wick_ratio
-        df2.loc[index, df2.columns[7]] = df2.at[index, "lower_wick"] / df2.at[index, "candle_body"]
-        # wick_to_body_ratio
-        df2.loc[index, df2.columns[8]] = (df2.at[index, "upper_wick"] + df2.at[index, "lower_wick"]) / df2.at[
-            index, "candle_body"]
-    else:
-        df2.loc[index, df2.columns[6]] = 0.0
-        df2.loc[index, df2.columns[7]] = 0.0
-        df2.loc[index, df2.columns[8]] = 0.0
+nonzero_body = df2["candle_body"] != 0
+df2["upper_wick_ratio"] = np.where(nonzero_body, df2["upper_wick"] / df2["candle_body"], 0.0)
+df2["lower_wick_ratio"] = np.where(nonzero_body, df2["lower_wick"] / df2["candle_body"], 0.0)
+df2["wick_to_body_ratio"] = np.where(
+    nonzero_body,
+    (df2["upper_wick"] + df2["lower_wick"]) / df2["candle_body"],
+    0.0
+)
 
-    # price_chage
-    df2.loc[index, df2.columns[9]] = Close - Open
+df2["price_change"] = df["Close"] - df["Open"]
 
-    if Volume != 0:
-        # buy_ratio
-        df2.loc[index, df2.columns[10]] = TakerBuyBase / Volume
-        # quote_volume_ratio
-        df2.loc[index, df2.columns[11]] = QuoteVolume / Volume
-        # trade_density
-        df2.loc[index, df2.columns[12]] = NumTrades / Volume
-    else :
-        df2.loc[index, df2.columns[10]] = 0.0
-        df2.loc[index, df2.columns[11]] = 0.0
-        df2.loc[index, df2.columns[12]] = 0.0
+nonzero_volume = df["Volume"] != 0
+df2["buy_ratio"]          = np.where(nonzero_volume, df["TakerBuyBase"] / df["Volume"], 0.0)
+df2["quote_volume_ratio"] = np.where(nonzero_volume, df["QuoteVolume"] / df["Volume"], 0.0)
+df2["trade_density"]      = np.where(nonzero_volume, df["NumTrades"] / df["Volume"], 0.0)
 
-    if QuoteVolume != 0:
-        # taker_buy_intensity
-        df2.loc[index, df2.columns[13]] = TakerBuyBase / QuoteVolume
-    else:
-        df2.loc[index, df2.columns[13]] = 0.0
+nonzero_quote_volume = df["QuoteVolume"] != 0
+df2["taker_buy_intensity"] = np.where(
+    nonzero_quote_volume, df["TakerBuyBase"] / df["QuoteVolume"], 0.0
+)
 
-    if NumTrades != 0:
-        # avg_trade_size
-        df2.loc[index, df2.columns[14]] = Volume / NumTrades
-    else:
-        df2.loc[index, df2.columns[14]] = 0.0
+nonzero_num_trades = df["NumTrades"] != 0
+df2["avg_trade_size"] = np.where(nonzero_num_trades, df["Volume"] / df["NumTrades"], 0.0)
 
+# Maintain original column order for compatibility
+df2 = df2[
+    [
+        "return_pct", "high_low_ratio", "candle_body", "candle_direction",
+        "upper_wick", "lower_wick", "upper_wick_ratio", "lower_wick_ratio",
+        "wick_to_body_ratio", "price_change", "buy_ratio", "quote_volume_ratio",
+        "trade_density", "taker_buy_intensity", "avg_trade_size"
+    ]
+]
 
-
+# ---------- export ----------
 df2.to_csv("./features/" + loadfile, index=False)
-print("✅ Exported data to ./features/" + loadfile)
+print(f"✅ Exported data to ./features/{loadfile}")
