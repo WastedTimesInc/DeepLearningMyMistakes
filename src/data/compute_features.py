@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import datetime as dt
 import argparse
+import talib
 
 parser = argparse.ArgumentParser(description="Compute Features")
 parser.add_argument("-S", "--startDate", type=str, required=True, help="Start date in format YYYY-MM-DD")
@@ -53,13 +54,21 @@ df2["taker_buy_intensity"] = np.where(
 nonzero_num_trades = df["NumTrades"] != 0
 df2["avg_trade_size"] = np.where(nonzero_num_trades, df["Volume"] / df["NumTrades"], 0.0)
 
+# Technical indicators using TA-Lib
+df2["ema_8"] = talib.EMA(df["Close"], timeperiod=8)
+df2["ema_21"] = talib.EMA(df["Close"], timeperiod=21)
+df2["rsi_6"] = talib.RSI(df["Close"], timeperiod=6)
+df2["rsi_14"] = talib.RSI(df["Close"], timeperiod=14)
+df2["vwap"] = (df["QuoteVolume"] / df["Volume"]).where(df["Volume"] != 0, 0.0)
+
 # Maintain original column order for compatibility
 df2 = df2[
     [
         "return_pct", "high_low_ratio", "candle_body", "candle_direction",
         "upper_wick", "lower_wick", "upper_wick_ratio", "lower_wick_ratio",
         "wick_to_body_ratio", "price_change", "buy_ratio", "quote_volume_ratio",
-        "trade_density", "taker_buy_intensity", "avg_trade_size"
+        "trade_density", "taker_buy_intensity", "avg_trade_size",
+        "ema_8", "ema_21", "rsi_6", "rsi_14", "vwap"
     ]
 ]
 
