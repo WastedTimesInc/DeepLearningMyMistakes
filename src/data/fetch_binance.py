@@ -55,7 +55,7 @@ for request in tqdm(range(int(numRequests)), desc="Fetching Klines"):
         print(response.text)
         break
 
-    time.sleep(0.5)
+    time.sleep(0.1)
 
 df2.columns = [
     "OpenTime", "Open", "High", "Low", "Close", "Volume",
