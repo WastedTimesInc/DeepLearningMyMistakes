@@ -180,7 +180,7 @@ def _plot_roi(series: pd.Series, title: str, out_path: Path) -> None:
     fig, ax = plt.subplots()
     series.plot(ax=ax)
     ax.set_title(title)
-    ax.set_ylabel("Account value")
+    ax.set_ylabel("Account value %")
     ax.set_xlabel("Time")
     ax.grid(True)
     fig.tight_layout()
@@ -259,7 +259,7 @@ def main() -> None:
         out_png = label_path.with_suffix("").with_name(label_path.stem + "_roi.png")
         _plot_roi(
             roi_daily,
-            title=f"Compounded ROI — {label_path.stem}",
+            title=f"Non Compounded ROI — {label_path.stem}",
             out_path=out_png,
         )
         print(f"  ↳ saved ROI chart → {out_png.relative_to(labels_dir.parent.parent)}")
