@@ -217,8 +217,14 @@ def main():
         df.loc[t['start'], 'label_strategy'] = t['strategy']
         df.loc[t['end'], 'label_strategy'] = t['strategy']
 
-    print(f"Saving labeled data to {out_path} ...")
-    df.to_parquet(out_path)
+    # Only keep timestamp and label in the final output
+    print(f"Saving labeled data (OpenTime + label) to {out_path} ...")
+    # Determine the timestamp column name (after lowercase normalisation)
+    ts_col = next((c for c in ("opentime", "open_time", "timestamp", "time") if c in df.columns), None)
+    if ts_col is None:
+        raise KeyError("Timestamp column not found – cannot save labels without it.")
+    df_out = df[[ts_col, "label"]].copy()
+    df_out.to_parquet(out_path)
     n_long = sum(1 for t in selected_trades if t['direction'] == 1)
     n_short = sum(1 for t in selected_trades if t['direction'] == -1)
 

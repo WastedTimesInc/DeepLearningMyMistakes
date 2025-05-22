@@ -45,8 +45,34 @@ for request in tqdm(range(int(numRequests)), desc="Fetching Klines"):
     if response.status_code == 200:
         data = response.json()
         if not data:
-            print(f"No data returned at {dt.datetime(currentUTC / 1000)}")
-            break
+            print(f"No data returned at {dt.datetime.fromtimestamp(currentUTC / 1000)}")
+
+            # ---------- save current chunk (if any) ----------
+            if not df2.empty:
+                # assign proper column names and dtypes before export
+                df2.columns = [
+                    "OpenTime", "Open", "High", "Low", "Close", "Volume",
+                    "CloseTime", "QuoteVolume", "NumTrades",
+                    "TakerBuyBase", "TakerBuyQuote", "Ignore"
+                ]
+                numeric_cols = [
+                    "Open", "High", "Low", "Close", "Volume",
+                    "QuoteVolume", "NumTrades", "TakerBuyBase", "TakerBuyQuote"
+                ]
+                df2[numeric_cols] = df2[numeric_cols].apply(pd.to_numeric, errors="coerce")
+
+                first_dt = dt.datetime.fromtimestamp(df2.iloc[0]['OpenTime'] / 1000).strftime("%Y-%m-%d_%H-%M")
+                last_dt = dt.datetime.fromtimestamp(df2.iloc[-1]['OpenTime'] / 1000).strftime("%Y-%m-%d_%H-%M")
+                name = f"{symbol}_{first_dt}_{last_dt}.parquet"
+                df2.to_parquet(f"./raw/{name}", index=False)
+                print(f"✅ Exported partial data to ./raw/{name}")
+
+                # start a fresh dataset
+                df2 = pd.DataFrame()
+
+            # skip the entire chunk that returned no data (1000 candles)
+            currentUTC += interval_ms * maxRequests
+            continue
         df = pd.DataFrame(data)
         df2 = pd.concat([df2, df], ignore_index=True)
         currentUTC = data[-1][0] + interval_ms
@@ -55,7 +81,7 @@ for request in tqdm(range(int(numRequests)), desc="Fetching Klines"):
         print(response.text)
         break
 
-    time.sleep(0.1)
+    # time.sleep(0.1)
 
 df2.columns = [
     "OpenTime", "Open", "High", "Low", "Close", "Volume",
