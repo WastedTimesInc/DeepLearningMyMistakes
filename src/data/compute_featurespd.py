@@ -5,6 +5,7 @@ import argparse
 import pandas_ta as ta
 import glob
 import os
+from tqdm import tqdm
 
 # ---------- helper: safe division ----------
 def _safe_div(numer, denom):
@@ -133,15 +134,44 @@ labels_df["openposition"] = open_flags
 labels_df.rename(columns={"opentime": "OpenTime"}, inplace=True)
 
 # Merge the flag into the features dataframe on timestamp
-df2 = df2.merge(labels_df[["OpenTime", "openposition"]], on="OpenTime", how="left")
+df2 = df2.merge(labels_df[["OpenTime", "openposition", "label"]], on="OpenTime", how="left")
 
-# Any rows without a corresponding label are assumed to have no open position
-df2["openposition"].fillna(False, inplace=True)
+# ---------- compute running open PnL ----------
+df2["openPnL"] = 0.0
+
+in_position = False
+entry_price = 0.0
+direction = 0  # +1 for long, -1 for short
+
+for idx in tqdm(range(len(df2)), desc="openPnL"):
+    lbl = df2.iat[idx, df2.columns.get_loc("label")]
+    price = df.iat[idx, df.columns.get_loc("Close")]
+
+    # Detect position opens
+    if (not in_position) and isinstance(lbl, str) and lbl.startswith("OPEN"):
+        direction = -1 if "SHORT" in lbl else 1  # assume long unless explicitly SHORT
+        entry_price = price
+        in_position = True
+
+    # Update running PnL while position is open
+    if in_position:
+        df2.iat[idx, df2.columns.get_loc("openPnL")] = direction * (price - entry_price) / entry_price
+
+        # Detect position closes – record PnL on this same bar, then reset
+        if isinstance(lbl, str) and lbl.startswith("CLOSE"):
+            in_position = False
+            direction = 0
+    else:
+        # Ensure zero while flat
+        df2.iat[idx, df2.columns.get_loc("openPnL")] = 0.0
+
+# Finished with labels for feature export
+df2.drop(columns=["label"], inplace=True)
 
 # ---------- final column order ----------
 df2 = df2[
     [
-        "OpenTime", "openposition",
+        "OpenTime", "openposition", "openPnL",
         "return_pct", "high_low_ratio", "candle_body", "candle_direction",
         "upper_wick", "lower_wick", "upper_wick_ratio", "lower_wick_ratio",
         "wick_to_body_ratio", "price_change", "buy_ratio", "quote_volume_ratio",
