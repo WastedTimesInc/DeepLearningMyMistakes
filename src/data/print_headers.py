@@ -8,6 +8,7 @@ for filename in os.listdir("./processed/labels/"):
                 df = pd.read_parquet(file_path, engine='auto')
                 print(f"\n📄 File: {filename}")
                 print("🧩 Columns:", list(df.columns))
+                print(df.head(50))
             except Exception as e:
                 print(f"❌ Could not read {filename}: {e}")
 
@@ -18,5 +19,6 @@ for filename in os.listdir("./processed/dataset/"):
                 df = pd.read_parquet(file_path, engine='auto')
                 print(f"\n📄 File: {filename}")
                 print("🧩 Columns:", list(df.columns))
+                print(df.head(50))
             except Exception as e:
-                print(f"❌ Could not read {filename}: {e}")
+                    print(f"❌ Could not read {filename}: {e}")
