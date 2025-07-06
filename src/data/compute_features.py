@@ -54,14 +54,10 @@ df2["taker_buy_intensity"] = np.where(
 )
 
 nonzero_num_trades = df["NumTrades"] != 0
-df2["avg_trade_size"] = np.where(nonzero_num_trades, df["Volume"] / df["NumTrades"], 0.0)
 
 # Technical indicators using TA-Lib
-df2["ema_8"] = talib.EMA(df["Close"], timeperiod=8)
-df2["ema_21"] = talib.EMA(df["Close"], timeperiod=21)
 df2["rsi_6"] = talib.RSI(df["Close"], timeperiod=6)
 df2["rsi_14"] = talib.RSI(df["Close"], timeperiod=14)
-df2["vwap"] = (df["QuoteVolume"] / df["Volume"]).where(df["Volume"] != 0, 0.0)
 
 
 # Attach the timestamp so downstream steps can verify continuity, join labels, etc.
@@ -100,14 +96,26 @@ df2["openposition"].fillna(False, inplace=True)
 df2 = df2[
     [
         "OpenTime", "openposition",
-        "return_pct", "high_low_ratio", "candle_body", "candle_direction",
+        "return_pct", "high_low_ratio","candle_direction",
         "upper_wick", "lower_wick", "upper_wick_ratio", "lower_wick_ratio",
-        "wick_to_body_ratio", "price_change", "buy_ratio", "quote_volume_ratio",
-        "trade_density", "taker_buy_intensity", "avg_trade_size",
-        "ema_8", "ema_21", "rsi_6", "rsi_14", "vwap"
+        "wick_to_body_ratio","buy_ratio", "quote_volume_ratio",
+        "trade_density", "taker_buy_intensity","rsi_6", "rsi_14"
     ]
 ]
+meta_cols = ["OpenTime", "openposition"]
+feature_cols = [col for col in df2.columns if col not in meta_cols]
 
+# Manual z-score normalization
+feature_means = df2[feature_cols].mean()
+feature_stds = df2[feature_cols].std()
+df2[feature_cols] = df2[feature_cols].clip(lower=-10, upper=10)
+# Avoid divide-by-zero
+feature_stds = feature_stds.replace(0, 1)
+
+# Standardize
+df2[feature_cols] = (df2[feature_cols] - feature_means) / feature_stds
+df2.replace([np.inf, -np.inf], 0.0, inplace=True)
+df2.fillna(0.0, inplace=True)
 # ---------- export ----------
 df2.to_parquet("./processed/dataset/" + savefile, index=False)
 print(f"✅ Exported data to ./processed/dataset/{savefile}")
